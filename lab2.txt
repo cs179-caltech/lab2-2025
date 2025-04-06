@@ -196,7 +196,7 @@ Examples:
 ./transpose 4096 naive
 ./transpose -1 optimal
 
-Copy paste the output of ./transpose.cc into README.txt once you are done.
+Copy paste the output of ./transpose into README.txt once you are done.
 Describe the strategies used for performance in either block comments over the
 kernel (as done for naiveTransposeKernel) or in README.txt.
 

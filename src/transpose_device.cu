@@ -1,6 +1,8 @@
 #include <cassert>
 #include <cuda_runtime.h>
+#include <stdexcept>
 #include "transpose_device.cuh"
+#include "ErrorCheck.cuh"
 
 /*
  * TODO for all kernels (including naive):
@@ -98,6 +100,8 @@ void cudaTranspose(
         optimalTransposeKernel<<<gridSize, blockSize>>>(d_input, d_output, n);
     }
     // Unknown type
-    else
-        assert(false);
+    else {
+        throw std::runtime_error("unknown transpose type");
+    }
+    checkCuda(cudaGetLastError());
 }

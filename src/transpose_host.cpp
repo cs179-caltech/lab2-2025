@@ -8,24 +8,7 @@
 
 #include "transpose_device.cuh"
 #include "ta_utilities.hpp"
-/*
- * NOTE: You can use this macro to easily check cuda error codes
- * and get more information.
- * 
- * Modified from:
- * http://stackoverflow.com/questions/14038589/
- *         what-is-the-canonical-way-to-check-for-errors-using-the-cuda-runtime-api
- */
-#define gpuErrChk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line,
-    bool abort = true)
-{
-    if (code != cudaSuccess) {
-        fprintf(stderr,"GPUassert: %s %s %d\n",
-            cudaGetErrorString(code), file, line);
-        exit(code);
-    }
-}
+#include "ErrorCheck.cuh"
 
 /* a and b point to n x n matrices. This method checks that A = B^T. */
 void checkTransposed(const float *a, const float *b, int n) {
@@ -72,7 +55,6 @@ int main(int argc, char *argv[]) {
     // Please leave these enabled as a courtesy to your fellow classmates
     // if you are using a shared computer. You may ignore or remove these 
     // functions if you are running on your local machine.
-    TA_Utilities::select_coldest_GPU();
     int max_time_allowed_in_seconds = 10;
     TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
     
@@ -119,17 +101,17 @@ int main(int argc, char *argv[]) {
         cudaEvent_t stop;
 
 #define START_TIMER() {                                                        \
-            gpuErrChk(cudaEventCreate(&start));                                \
-            gpuErrChk(cudaEventCreate(&stop));                                 \
-            gpuErrChk(cudaEventRecord(start));                                 \
+            checkCuda(cudaEventCreate(&start));                                \
+            checkCuda(cudaEventCreate(&stop));                                 \
+            checkCuda(cudaEventRecord(start));                                 \
         }
 
 #define STOP_RECORD_TIMER(name) {                                              \
-            gpuErrChk(cudaEventRecord(stop));                                  \
-            gpuErrChk(cudaEventSynchronize(stop));                             \
-            gpuErrChk(cudaEventElapsedTime(&name, start, stop));               \
-            gpuErrChk(cudaEventDestroy(start));                                \
-            gpuErrChk(cudaEventDestroy(stop));                                 \
+            checkCuda(cudaEventRecord(stop));                                  \
+            checkCuda(cudaEventSynchronize(stop));                             \
+            checkCuda(cudaEventElapsedTime(&name, start, stop));               \
+            checkCuda(cudaEventDestroy(start));                                \
+            checkCuda(cudaEventDestroy(stop));                                 \
         }
 
         // Initialize timers
@@ -146,14 +128,14 @@ int main(int argc, char *argv[]) {
         // Allocate device memory
         float *d_input;
         float *d_output;
-        gpuErrChk(cudaMalloc(&d_input, n * n * sizeof(float)));
-        gpuErrChk(cudaMalloc(&d_output, n * n * sizeof(float)));
+        checkCuda(cudaMalloc(&d_input, n * n * sizeof(float)));
+        checkCuda(cudaMalloc(&d_output, n * n * sizeof(float)));
 
         // Initialize input data to random numbers in [0, 1]
         randomFill(input, n * n);
 
         // Copy input to GPU
-        gpuErrChk(cudaMemcpy(d_input, input, n * n * sizeof(float), 
+        checkCuda(cudaMemcpy(d_input, input, n * n * sizeof(float), 
             cudaMemcpyHostToDevice));
 
 
@@ -172,11 +154,11 @@ int main(int argc, char *argv[]) {
         // GPU memcpy (useful for comparison purposes)
         if (kernel == "gpu_memcpy" || kernel == "all") {
             START_TIMER();
-            gpuErrChk(cudaMemcpy(d_output, d_input, n * n * sizeof(float),
+            checkCuda(cudaMemcpy(d_output, d_input, n * n * sizeof(float),
                 cudaMemcpyDeviceToDevice));
             STOP_RECORD_TIMER(gpu_memcpy);
 
-            gpuErrChk(cudaMemset(d_output, 0, n * n * sizeof(float)));
+            checkCuda(cudaMemset(d_output, 0, n * n * sizeof(float)));
             printf("Size %d GPU memcpy: %f ms\n", n, gpu_memcpy);
         }
 
@@ -186,12 +168,12 @@ int main(int argc, char *argv[]) {
             cudaTranspose(d_input, d_output, n, NAIVE);
             STOP_RECORD_TIMER(naive_gpu_ms);
 
-            gpuErrChk(cudaMemcpy(output, d_output, n * n * sizeof(float), 
+            checkCuda(cudaMemcpy(output, d_output, n * n * sizeof(float), 
                 cudaMemcpyDeviceToHost));
             checkTransposed(input, output, n);
 
             memset(output, 0, n * n * sizeof(float));
-            gpuErrChk(cudaMemset(d_output, 0, n * n * sizeof(float)));
+            checkCuda(cudaMemset(d_output, 0, n * n * sizeof(float)));
 
             printf("Size %d naive GPU: %f ms\n", n, naive_gpu_ms);
         }
@@ -202,12 +184,12 @@ int main(int argc, char *argv[]) {
             cudaTranspose(d_input, d_output, n, SHMEM);
             STOP_RECORD_TIMER(shmem_gpu_ms);
 
-            gpuErrChk(cudaMemcpy(output, d_output, n * n * sizeof(float), 
+            checkCuda(cudaMemcpy(output, d_output, n * n * sizeof(float), 
                 cudaMemcpyDeviceToHost));
             checkTransposed(input, output, n);
 
             memset(output, 0, n * n * sizeof(float));
-            gpuErrChk(cudaMemset(d_output, 0, n * n * sizeof(float)));
+            checkCuda(cudaMemset(d_output, 0, n * n * sizeof(float)));
 
             printf("Size %d shmem GPU: %f ms\n", n, shmem_gpu_ms);
         }
@@ -218,12 +200,12 @@ int main(int argc, char *argv[]) {
             cudaTranspose(d_input, d_output, n, OPTIMAL);
             STOP_RECORD_TIMER(optimal_gpu_ms);
 
-            gpuErrChk(cudaMemcpy(output, d_output, n * n * sizeof(float), 
+            checkCuda(cudaMemcpy(output, d_output, n * n * sizeof(float), 
                 cudaMemcpyDeviceToHost));
             checkTransposed(input, output, n);
 
             memset(output, 0, n * n * sizeof(float));
-            gpuErrChk(cudaMemset(d_output, 0, n * n * sizeof(float)));
+            checkCuda(cudaMemset(d_output, 0, n * n * sizeof(float)));
 
             printf("Size %d optimal GPU: %f ms\n", n, optimal_gpu_ms);
         }
@@ -233,8 +215,8 @@ int main(int argc, char *argv[]) {
         delete[] output;
 
         // Free device memory
-        gpuErrChk(cudaFree(d_input));
-        gpuErrChk(cudaFree(d_output));
+        checkCuda(cudaFree(d_input));
+        checkCuda(cudaFree(d_output));
 
         printf("\n");
     }
