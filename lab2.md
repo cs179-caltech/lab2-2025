@@ -112,8 +112,7 @@ output[i + 32 * j] += lhs[i + 32 * k] * rhs[k + 128 * j];
 output[i + 32 * j] += lhs[i + 32 * (k + 1)] * rhs[(k + 1) + 128 * j];
 ```
 
-into "psuedo-assembly" as was done in the coordinate addition example in lecture
-4.
+into "psuedo-assembly" as was done in the coordinate addition example in lecture 4.
 
 There's no need to expand the indexing math, only to expand the loads, stores,
 and math. Notably, the operation `a += b * c` can be computed by a single
