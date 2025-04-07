@@ -20,8 +20,8 @@ Your submission should be a single archive file (`.zip`) with your README file a
 How many 32-bit floating point fused multiply-adds (FMAs) can an RTX A5000 GPU perform per second?
 
 Use these sources:
-- https://docs.nvidia.com/cuda/cuda-c-programming-guide/#arithmetic-instructions-throughput-native-arithmetic-instructions
-- https://www.techpowerup.com/gpu-specs/rtx-a5000.c3748
+- [CUDA Docs - Instruction Throughput](https://docs.nvidia.com/cuda/cuda-c-programming-guide/#arithmetic-instructions-throughput-native-arithmetic-instructions)
+- [RTX A5000 Specs](https://www.techpowerup.com/gpu-specs/rtx-a5000.c3748)
 
 ### Question 1.2: Thread Divergence (6 points)
 Let the block shape be (32, 32, 1).
@@ -234,4 +234,4 @@ List at least 2 ways (you don't need more than a sentence or two for each way).
 
 ## Further Readings
 There is an advanced technique called "swizzling" to avoid bank conflicts without using padding.
-CUDA matrix multiply implementation often use this technique, see https://leimao.github.io/blog/CuTe-Swizzle/
+CUDA matrix multiply implementation often use this technique, see [Lei Mao - CuTe Swizzle](https://leimao.github.io/blog/CuTe-Swizzle/).
