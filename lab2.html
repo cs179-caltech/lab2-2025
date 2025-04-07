@@ -1,0 +1,497 @@
+
+      <html>
+        <head>
+          <title></title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <meta charset="UTF-8">
+        </head>
+        <body>
+          <div id='content'>
+      <h1 id="cs-179">CS 179</h1>
+<h2 id="assignment-2">Assignment 2</h2>
+<p>Due: Wednesday, April 16, 2025 - 3:00 PM</p>
+<p>Put all answers in a file called <code>README.txt</code>. After answering all of the<br />
+questions, list how long each part took. Feel free to leave any other<br />
+feedback.</p>
+<h2 id="submission-instructions">Submission Instructions</h2>
+<p>Put a zip file in your home directory on the lab machine, in the format:</p>
+<p><code>lab2_2025_submission.zip</code></p>
+<p>Your submission should be a single archive file (<code>.zip</code>) with your README file and all code.</p>
+<h2 id="part-1">PART 1</h2>
+<h3 id="question-11-throughput-5-points">Question 1.1: Throughput (5 points)</h3>
+<p>How many 32-bit floating point fused multiply-adds (FMAs) can an RTX A5000 GPU perform per second?</p>
+<p>Use these sources:</p>
+<ul>
+<li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/#arithmetic-instructions-throughput-native-arithmetic-instructions">CUDA Docs - Instruction Throughput</a></li>
+<li><a href="https://www.techpowerup.com/gpu-specs/rtx-a5000.c3748">RTX A5000 Specs</a></li>
+</ul>
+<h3 id="question-12-thread-divergence-6-points">Question 1.2: Thread Divergence (6 points)</h3>
+<p>Let the block shape be (32, 32, 1).</p>
+<p>(a)</p>
+<pre><code class="hljs cuda language-cuda">int idx = threadIdx.<span class="hljs-variable language_">y</span> + blockSize.<span class="hljs-variable language_">y</span> * threadIdx.<span class="hljs-variable language_">x</span>;
+<span class="hljs-keyword">if</span> (idx % <span class="hljs-number">32</span> &lt; <span class="hljs-number">16</span>)
+    foo();
+<span class="hljs-keyword">else</span>
+    bar();
+</code></pre>
+<p>Does this code diverge? Why or why not?</p>
+<p>(b)</p>
+<pre><code class="hljs cuda language-cuda">const float pi <span class="hljs-operator">=</span> <span class="hljs-number">3.14</span><span class="hljs-comment">;</span>
+float result <span class="hljs-operator">=</span> <span class="hljs-number">1.0</span><span class="hljs-comment">;</span>
+for (int i <span class="hljs-operator">=</span> <span class="hljs-number">0</span><span class="hljs-comment">; i &lt; threadIdx.x; i++)</span>
+    result *<span class="hljs-operator">=</span> pi<span class="hljs-comment">;</span>
+</code></pre>
+<p>Does this code diverge? Why or why not? (This is a bit of a trick question,<br />
+either "yes" or "no can be a correct answer with appropriate explanation.)</p>
+<h3 id="question-13-coalesced-memory-access-9-points">Question 1.3: Coalesced Memory Access (9 points)</h3>
+<p>Let the block shape be (32, 32, 1). Let data be a <code>(float *)</code> pointing to global<br />
+memory and let data be 128 byte aligned (so <code>data % 128 == 0</code>).</p>
+<p>Consider each of the following access patterns.</p>
+<p>(a)</p>
+<pre><code class="hljs cuda language-cuda">data[threadIdx.<span class="hljs-variable language_">x</span> + blockSize.<span class="hljs-variable language_">x</span> * threadIdx.<span class="hljs-variable language_">y</span>] = <span class="hljs-number">1.0</span>;
+</code></pre>
+<p>Is this write coalesced? How many 128 byte cache lines does this write to?</p>
+<p>(b)</p>
+<pre><code class="hljs cuda language-cuda">data[threadIdx.<span class="hljs-variable language_">y</span> + blockSize.<span class="hljs-variable language_">y</span> * threadIdx.<span class="hljs-variable language_">x</span>] = <span class="hljs-number">1.0</span>;
+</code></pre>
+<p>Is this write coalesced? How many 128 byte cache lines does this write to?</p>
+<p>(c)</p>
+<pre><code class="hljs cuda language-cuda"><span class="hljs-attribute">data</span>[<span class="hljs-number">1</span> + threadIdx.x + blockSize.x * threadIdx.y] = <span class="hljs-number">1</span>.<span class="hljs-number">0</span>;
+</code></pre>
+<p>Is this write coalesced? How many 128 byte cache lines does this write to?</p>
+<h3 id="question-14-bank-conflicts-and-instruction-dependencies-15-points">Question 1.4: Bank Conflicts and Instruction Dependencies (15 points)</h3>
+<p>Let's consider multiplying a 32 x 128 matrix with a 128 x 32 element matrix.<br />
+This outputs a 32 x 32 matrix. We'll use 32 ** 2 = 1024 threads and each thread<br />
+will compute 1 output element. Although its not optimal, for the sake of<br />
+simplicity let's use a single block, so grid shape = (1, 1, 1),<br />
+block shape = (32, 32, 1).</p>
+<p>For the sake of this problem, let's assume both the left and right matrices have<br />
+already been stored in shared memory are in column major format. This means the<br />
+element in the ith row and jth column is accessible at <code>lhs[i + 32 * j]</code> for the<br />
+left hand side and <code>rhs[i + 128 * j]</code> for the right hand side.</p>
+<p>This kernel will write to a variable called <code>output</code> stored in shared memory.</p>
+<p>Consider the following kernel code:</p>
+<pre><code class="hljs cuda language-cuda">int i = threadIdx.x;
+int <span class="hljs-keyword">j </span>= threadIdx.y;
+for (int k = <span class="hljs-number">0</span><span class="hljs-comment">; k &lt; 128; k += 2) {</span>
+    output[i + <span class="hljs-number">32</span> * <span class="hljs-keyword">j] </span>+= <span class="hljs-keyword">lhs[i </span>+ <span class="hljs-number">32</span> * k] * rhs[k + <span class="hljs-number">128</span> * <span class="hljs-keyword">j];
+</span>    output[i + <span class="hljs-number">32</span> * <span class="hljs-keyword">j] </span>+= <span class="hljs-keyword">lhs[i </span>+ <span class="hljs-number">32</span> * (k + <span class="hljs-number">1</span>)] * rhs[(k + <span class="hljs-number">1</span>) + <span class="hljs-number">128</span> * <span class="hljs-keyword">j];
+</span>}
+</code></pre>
+<p>(a)<br />
+Are there bank conflicts in this code? If so, how many ways is the bank conflict<br />
+(2-way, 4-way, etc)?</p>
+<p>(b)<br />
+Expand the inner part of the loop (below)</p>
+<pre><code class="hljs cuda language-cuda"><span class="hljs-attribute">output</span>[i + <span class="hljs-number">32</span> * j] += lhs[i + <span class="hljs-number">32</span> * k] * rhs[k + <span class="hljs-number">128</span> * j];
+<span class="hljs-attribute">output</span>[i + <span class="hljs-number">32</span> * j] += lhs[i + <span class="hljs-number">32</span> * (k + <span class="hljs-number">1</span>)] * rhs[(k + <span class="hljs-number">1</span>) + <span class="hljs-number">128</span> * j];
+</code></pre>
+<p>into "psuedo-assembly" as was done in the coordinate addition example in lecture 4.</p>
+<p>There's no need to expand the indexing math, only to expand the loads, stores,<br />
+and math. Notably, the operation <code>a += b * c</code> can be computed by a single<br />
+instruction called a fused multiply add (FMA), so this can be a single<br />
+instruction in your "psuedo-assembly".</p>
+<p>Hint: Each line should expand to 5 instructions.</p>
+<p>(c)<br />
+Identify pairs of dependent instructions in your answer to part b.</p>
+<p>(d)<br />
+Rewrite the code given at the beginning of this problem to minimize instruction<br />
+dependencies. You can add or delete instructions (deleting an instruction is a<br />
+valid way to get rid of a dependency!) but each iteration of the loop must still<br />
+process 2 values of k.</p>
+<p>(e)<br />
+Can you think of any other anything else you can do that might make this code<br />
+run faster?</p>
+<h2 id="part-2---matrix-transpose-optimization-50-points">PART 2 - Matrix transpose optimization (50 points)</h2>
+<p>Optimize the CUDA matrix transpose implementations in <code>transpose_cuda.cu</code>. Read<br />
+ALL of the TODO comments. Matrix transpose is a common exercise in GPU<br />
+optimization, so do not search for existing GPU matrix transpose code on the<br />
+internet.</p>
+<p>Your transpose code only need to be able to transpose square matrices where the<br />
+side length is a multiple of 64.</p>
+<p>The initial implementation has each block of 1024 threads handle a 64x64 block<br />
+of the matrix, but you can change anything about the kernel if it helps obtain<br />
+better performance.</p>
+<p>The main method of <code>transpose.cc</code> already checks for correctness for all transpose<br />
+results, so there should be an assertion failure if your kernel produces incorrect<br />
+output.</p>
+<p>The purpose of the <code>shmemTransposeKernel</code> is to demonstrate proper usage of global<br />
+and shared memory. The <code>optimalTransposeKernel</code> should be built on top of<br />
+<code>shmemTransposeKernel</code> and should incorporate any "tricks" such as ILP, loop<br />
+unrolling, vectorized IO, etc that have been discussed in class.</p>
+<p>The transpose program takes 2 optional arguments: input size and method. Input<br />
+size must be one of -1, 512, 1024, 2048, 4096, and method must be one all,<br />
+cpu, gpu_memcpy, naive, shmem, optimal. Input size is the first argument and<br />
+defaults to -1. Method is the second argument and defaults to all. You can pass<br />
+input size without passing method, but you cannot pass method without passing an<br />
+input size.</p>
+<p>Examples:</p>
+<pre><code class="hljs bash language-bash">./transpose
+./transpose 512
+./transpose 4096 naive
+./transpose -1 optimal
+</code></pre>
+<p>Copy paste the output of <code>./transpose</code> into <code>README.txt</code> once you are done.<br />
+Describe the strategies used for performance in either block comments over the<br />
+kernel (as done for <code>naiveTransposeKernel</code>) or in <code>README.txt</code>.</p>
+<h2 id="part-3-profiling-15-points">PART 3: Profiling (15 points)</h2>
+<p>Profiling is one of the most important parts of writing CUDA code,<br />
+because it allows you to measure what is slowing down your code.<br />
+To profile the transpose program:</p>
+<ol>
+<li><code>ncu --export profile.ncu-rep --force-overwrite --set full ./transpose 4096 all</code><ul>
+<li>See <a href="https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html">NSight Compute Docs</a> for more information</li></ul></li>
+<li><a href="https://developer.nvidia.com/tools-overview/nsight-compute/get-started#latest">Download NSight Compute GUI</a> on your local computer</li>
+<li>Download the ncu-rep file from titan to your local computer, for example: <code>rsync -P titan:lab2-2025-main/build/profile.ncu-rep .</code></li>
+<li>Open NSight Compute GUI, and click File -&gt; Open File -&gt; Select the ncu-rep file</li>
+<li>Notice the 3 different kernels under the "Summary" tab. Select a kernel and switch to the "Details" tab.</li>
+</ol>
+<p>To submit with your assignment:</p>
+<ol>
+<li>Include screenshots of the Memory Chart under "Memory Workload Analysis" for all 3 kernels. Switch the values to use "Throughput" instead of transfer size.</li>
+<li>How much global (device) memory bandwidth (GB/s) does each of your kernels use? Add read+write bandwidth together.<ul>
+<li>What percentage of theoretical global memory bandwidth does each kernel achieve? Switch to "Memory Tables" and check "% Peak".</li></ul></li>
+<li>Look at the "Source" tab for <code>shmemTransposeKernel</code> and view the SASS code. SASS is the low level assembly code that the GPU executes directly.<ul>
+<li>What is one optimization that the compiler performed, which you can notice when you compare your source code to the SASS?</li></ul></li>
+</ol>
+<h2 id="bonus-5-points-maximum-set-score-is-100-even-with-bonus">BONUS (+5 points, maximum set score is 100 even with bonus)</h2>
+<p>Mathematical scripting environments such as Matlab or Python + Numpy often<br />
+encourage expressing algorithms in terms of vector operations because they offer<br />
+a convenient and performant interface. For instance, one can add 2 n-component<br />
+vectors (a and b) in Numpy with <code>c = a + b</code>.</p>
+<p>This is often implemented with something like the following code:</p>
+<pre><code class="hljs c language-c"><span class="hljs-type">void</span> <span class="hljs-title function_">vec_add</span><span class="hljs-params">(<span class="hljs-type">float</span> *left, <span class="hljs-type">float</span> *right, <span class="hljs-type">float</span> *out, <span class="hljs-type">int</span> size)</span> {
+    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">0</span>; i &lt; size; i++)
+        out[i] = left[i] + right[i];
+}
+</code></pre>
+<p>Consider the code</p>
+<pre><code class="hljs python language-python">a = x + y + z
+</code></pre>
+<p>where x, y, z are n-component vectors.</p>
+<p>One way this could be computed would be</p>
+<pre><code class="hljs c language-c">vec_add(x, y, a, n);
+vec_add(a, z, a, n);
+</code></pre>
+<p>In what ways is this code (2 calls to vec_add) worse than the following?</p>
+<pre><code class="hljs c language-c"><span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">0</span>; i &lt; n; i++)
+    a[i] = x[i] + y[i] + z[i];
+</code></pre>
+<p>List at least 2 ways (you don't need more than a sentence or two for each way).</p>
+<h2 id="further-readings">Further Readings</h2>
+<p>There is an advanced technique called "swizzling" to avoid bank conflicts without using padding.<br />
+CUDA matrix multiply implementation often use this technique, see <a href="https://leimao.github.io/blog/CuTe-Swizzle/">Lei Mao - CuTe Swizzle</a>.</p>
+
+          </div>
+          <style type='text/css'>body {
+    font: 400 16px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #111;
+    background-color: #fbfbfb;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-feature-settings: "kern" 1;
+    -moz-font-feature-settings: "kern" 1;
+    -o-font-feature-settings: "kern" 1;
+    font-feature-settings: "kern" 1;
+    font-kerning: normal;
+    padding: 30px;
+}
+
+@media only screen and (max-width: 600px) {
+    body {
+        padding: 5px;
+    }
+    body>#content {
+        padding: 0px 20px 20px 20px !important;
+    }
+}
+
+body>#content {
+    margin: 0px;
+    max-width: 900px;
+    border: 1px solid #e1e4e8;
+    padding: 10px 40px;
+    padding-bottom: 20px;
+    border-radius: 2px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+summary {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+hr {
+    color: #bbb;
+    background-color: #bbb;
+    height: 1px;
+    flex: 0 1 auto;
+    margin: 1em 0;
+    padding: 0;
+    border: none;
+}
+
+.hljs-operator {
+    color: #868686;
+    /* There is a bug where the syntax highlighter would pick no color for e.g. `&&` symbols in the code samples. Let's overwrite this */
+}
+
+
+/**
+ * Links
+ */
+
+a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+a:visited {
+    color: #0366d6;
+}
+
+a:hover {
+    color: #0366d6;
+    text-decoration: underline;
+}
+
+pre {
+    background-color: #f6f8fa;
+    border-radius: 3px;
+    font-size: 85%;
+    line-height: 1.45;
+    overflow: auto;
+    padding: 16px;
+}
+
+
+/**
+  * Code blocks
+  */
+
+code {
+    background-color: rgba(27, 31, 35, .05);
+    border-radius: 3px;
+    font-size: 85%;
+    margin: 0;
+    word-wrap: break-word;
+    padding: .2em .4em;
+    font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace;
+}
+
+pre>code {
+    background-color: transparent;
+    border: 0;
+    display: inline;
+    line-height: inherit;
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+    word-wrap: normal;
+    font-size: 100%;
+}
+
+
+/**
+ * Blockquotes
+ */
+
+blockquote {
+    margin-left: 30px;
+    margin-top: 0px;
+    margin-bottom: 16px;
+    border-left-width: 3px;
+    padding: 0 1em;
+    color: #828282;
+    border-left: 4px solid #e8e8e8;
+    padding-left: 15px;
+    font-size: 18px;
+    letter-spacing: -1px;
+    font-style: italic;
+}
+
+blockquote * {
+    font-style: normal !important;
+    letter-spacing: 0;
+    color: #6a737d !important;
+}
+
+
+/**
+ * Tables
+ */
+
+table {
+    border-spacing: 2px;
+    display: block;
+    font-size: 14px;
+    overflow: auto;
+    width: 100%;
+    margin-bottom: 16px;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+
+th {
+    font-weight: 600;
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+
+tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+
+
+/**
+ * Others
+ */
+
+img {
+    max-width: 100%;
+}
+
+p {
+    line-height: 24px;
+    font-weight: 400;
+    font-size: 16px;
+    color: #24292e;
+}
+
+ul {
+    margin-top: 0;
+}
+
+li {
+    color: #24292e;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+li+li {
+    margin-top: 0.25em;
+}
+
+* {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    color: #24292e;
+}
+
+a:visited {
+    color: #0366d6;
+}
+
+h1,
+h2,
+h3 {
+    border-bottom: 1px solid #eaecef;
+    color: #111;
+    /* Darker */
+}
+
+code>* {
+    font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+}</style>
+          <style type='text/css'>pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em
+}
+code.hljs {
+  padding: 3px 5px
+}
+/*
+
+Atom One Dark by Daniel Gamage
+Original One Dark Syntax theme from https://github.com/atom/one-dark-syntax
+
+base:    #282c34
+mono-1:  #abb2bf
+mono-2:  #818896
+mono-3:  #5c6370
+hue-1:   #56b6c2
+hue-2:   #61aeee
+hue-3:   #c678dd
+hue-4:   #98c379
+hue-5:   #e06c75
+hue-5-2: #be5046
+hue-6:   #d19a66
+hue-6-2: #e6c07b
+
+*/
+.hljs {
+  color: #abb2bf;
+  background: #282c34
+}
+.hljs-comment,
+.hljs-quote {
+  color: #5c6370;
+  font-style: italic
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula {
+  color: #c678dd
+}
+.hljs-section,
+.hljs-name,
+.hljs-selector-tag,
+.hljs-deletion,
+.hljs-subst {
+  color: #e06c75
+}
+.hljs-literal {
+  color: #56b6c2
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: #98c379
+}
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-number {
+  color: #d19a66
+}
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-title {
+  color: #61aeee
+}
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title {
+  color: #e6c07b
+}
+.hljs-emphasis {
+  font-style: italic
+}
+.hljs-strong {
+  font-weight: bold
+}
+.hljs-link {
+  text-decoration: underline
+}</style>
+        </body>
+      </html>
