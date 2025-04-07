@@ -4,7 +4,7 @@
 Due: Wednesday, April 16, 2025 - 3:00 PM
 
 Put all answers in a file called `README.txt`. After answering all of the
-questions, list how long part 1 and part 2 took. Feel free to leave any other
+questions, list how long each part took. Feel free to leave any other
 feedback.
 
 ## Submission Instructions
