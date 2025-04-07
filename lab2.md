@@ -187,9 +187,9 @@ To profile the transpose program:
 5. Notice the 3 different kernels under the "Summary" tab. Select a kernel and switch to the "Details" tab.
 
 To submit with your assignment:
-1. Include screenshots of the Memory Chart under "Memory Workload Analysis" for all 3 kernels.
-2. How much memory bandwidth (GB/s) does each of your kernels use? Add read+write bandwidth together.
-    - What percentage of theoretical global memory bandwidth does each kernel achieve? See the "GPU Throughput" chart.
+1. Include screenshots of the Memory Chart under "Memory Workload Analysis" for all 3 kernels. Switch the values to use "Throughput" instead of transfer size.
+2. How much global (device) memory bandwidth (GB/s) does each of your kernels use? Add read+write bandwidth together.
+    - What percentage of theoretical global memory bandwidth does each kernel achieve? Switch to "Memory Tables" and check "% Peak".
 3. Look at the "Source" tab for `shmemTransposeKernel` and view the SASS code. SASS is the low level assembly code that the GPU executes directly.
     - What is one optimization that the compiler performed, which you can notice when you compare your source code to the SASS?
 
