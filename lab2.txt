@@ -140,7 +140,7 @@ run faster?
 
 
 
-PART 2 - Matrix transpose optimization (65 points)
+PART 2 - Matrix transpose optimization (50 points)
 --------------------------------------------------
 
 Optimize the CUDA matrix transpose implementations in transpose_cuda.cu. Read
@@ -164,25 +164,6 @@ and shared memory. The optimalTransposeKernel should be built on top of
 shmemTransposeKernel and should incorporate any "tricks" such as ILP, loop
 unrolling, vectorized IO, etc that have been discussed in class.
 
-You can compile and run the code by running
-
-make transpose
-./transpose
-
-and the build process was tested on minuteman. If this does not work on haru for
-you, be sure to add the lines
-
-export PATH=/usr/local/cuda-6.5/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-6.5/lib64:$LD_LIBRARY_PATH
-
-to your ~/.profile file (and then exit and ssh back in to restart your shell).
-
-On OS X, you may have to run or add to your .bash_profile the command
-
-export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/usr/local/cuda/lib/
-
-in order to get dynamic library linkage to work correctly.
-
 The transpose program takes 2 optional arguments: input size and method. Input
 size must be one of -1, 512, 1024, 2048, 4096, and method must be one all,
 cpu, gpu_memcpy, naive, shmem, optimal. Input size is the first argument and
@@ -201,6 +182,25 @@ Describe the strategies used for performance in either block comments over the
 kernel (as done for naiveTransposeKernel) or in README.txt.
 
 
+
+PART 3: Profiling (15 points)
+--------------------------------------------------------------------------------
+Profiling is one of the most important parts of writing CUDA code,
+because it allows you to measure what is slowing down your code.
+To profile the transpose program:
+1. `ncu --export profile.ncu-rep --force-overwrite --set full ./transpose 4096 all`
+    - See [NSight Compute Docs](https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html) for more information
+2. [Download NSight Compute GUI](https://developer.nvidia.com/tools-overview/nsight-compute/get-started#latest) on your local computer
+3. Download the ncu-rep file from titan to your local computer, for example: `rsync -P titan:lab2-2025-main/build/profile.ncu-rep .`
+4. Open NSight Compute GUI, and click File -> Open File -> Select the ncu-rep file
+5. Notice the 3 different kernels under the "Summary" tab. Select a kernel and switch to the "Details" tab.
+
+To submit with your assignment:
+1. Include screenshots of the Memory Chart under "Memory Workload Analysis" for all 3 kernels.
+2. How much memory bandwidth (GB/s) does each of your kernels use? Add read+write bandwidth together.
+    - What percentage of theoretical global memory bandwidth does each kernel achieve? See the "GPU Throughput" chart.
+3. Look at the "Source" tab for shmemTransposeKernel and view the SASS code. SASS is the low level assembly code that the GPU executes directly.
+    - What is one optimization that the compiler performed, which you can notice when you compare your source code to the SASS?
 
 
 BONUS (+5 points, maximum set score is 100 even with bonus)
@@ -235,3 +235,11 @@ for (int i = 0; i < n; i++)
     a[i] = x[i] + y[i] + z[i];
 
 List at least 2 ways (you don't need more than a sentence or two for each way).
+
+
+FURTHER READINGS
+-------------------------------------------------------
+There is an advanced technique called "swizzling" to avoid bank conflicts without using padding.
+CUDA matrix multiply implementation often use this technique, see
+https://github.com/NVIDIA/cutlass/blob/df8a550d3917b0e97f416b2ed8c2d786f7f686a3/include/cute/swizzle.hpp
+https://leimao.github.io/blog/CuTe-Swizzle/
