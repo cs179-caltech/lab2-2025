@@ -59,21 +59,21 @@ Consider each of the following access patterns.
 data[threadIdx.x + blockSize.x * threadIdx.y] = 1.0;
 ```
 
-Is this write coalesced? How many 128 byte cache lines does this write to?
+Is this write coalesced? How many 128 byte cache line requests are made?
 
 (b)
 ```cuda
 data[threadIdx.y + blockSize.y * threadIdx.x] = 1.0;
 ```
 
-Is this write coalesced? How many 128 byte cache lines does this write to?
+Is this write coalesced? How many 128 byte cache line requests are made?
 
 (c)
 ```cuda
 data[1 + threadIdx.x + blockSize.x * threadIdx.y] = 1.0;
 ```
 
-Is this write coalesced? How many 128 byte cache lines does this write to?
+Is this write coalesced? How many 128 byte cache line requests are made?
 
 ### Question 1.4: Bank Conflicts and Instruction Dependencies (15 points)
 Let's consider multiplying a 32 x 128 matrix with a 128 x 32 element matrix.
